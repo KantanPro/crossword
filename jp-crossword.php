@@ -178,15 +178,26 @@ class JPCrosswordGenerator {
 		ob_start();
 		?>
 		<div class="jpcw-wrapper" id="<?php echo esc_attr( $id ); ?>" data-size="<?php echo esc_attr( $size ); ?>">
-			<div class="jpcw-controls">
-				<button type="button" class="jpcw-new button button-primary">
-					<?php _e( '新規問題', 'jp-crossword' ); ?>
-				</button>
-				<button type="button" class="jpcw-giveup button button-secondary">
-					<?php _e( 'ギブアップ（答えを表示）', 'jp-crossword' ); ?>
-				</button>
+			<div class="jpcw-game-container">
+				<h3><?php _e( 'クロスワードパズル', 'jp-crossword' ); ?></h3>
+				<div class="jpcw-board"></div>
+				<div class="jpcw-controls">
+					<button type="button" class="jpcw-new crossword-btn">
+						<?php _e( '新規問題', 'jp-crossword' ); ?>
+					</button>
+					<button type="button" class="jpcw-giveup crossword-btn">
+						<?php _e( '答えを見る', 'jp-crossword' ); ?>
+					</button>
+				</div>
+				<div class="jpcw-status"></div>
 			</div>
-			<div class="jpcw-board" aria-live="polite"></div>
+			
+			<div class="jpcw-hints">
+				<h4><?php _e( 'タテのカギ', 'jp-crossword' ); ?></h4>
+				<ul class="jpcw-clues-down"></ul>
+				<h4><?php _e( 'ヨコのカギ', 'jp-crossword' ); ?></h4>
+				<ul class="jpcw-clues-across"></ul>
+			</div>
 		</div>
 		<?php
 		return ob_get_clean();
@@ -229,6 +240,7 @@ class JPCrosswordGenerator {
 				'loading' => __( '問題を生成中…', 'jp-crossword' ),
 				'error'   => __( '生成に失敗しました。再度お試しください。', 'jp-crossword' ),
 				'new'     => __( '新規問題', 'jp-crossword' ),
+				'hint'    => __( 'ヒントを表示', 'jp-crossword' ),
 				'giveup'  => __( 'ギブアップ（答えを表示）', 'jp-crossword' ),
 			],
 		] );
@@ -264,27 +276,30 @@ class JPCrosswordGenerator {
 	}
 
 	/**
-	 * 日本語の単語リスト（かな中心）
+	 * 日本語の単語リスト（かな中心）とヒント
 	 * 必要に応じてフィルタで拡張可能：apply_filters( 'jpcw_dictionary', $words )
 	 */
 	private function dictionary() {
 		$words = [
-			'パズル','クロス','コタエ','ナゾナゾ','ゲーム','タイル','モジ','ゴマス','シロマス','クログリッド',
-			'ネコ','イヌ','サクラ','ウミ','ヤマ','カゼ','アメ','ユキ','タイヨウ','ツキ',
-			'ガクシュウ','ベンキョウ','ガッコウ','センセイ','セイト',
-			'コンピュータ','プログラム','コーディング','データ','アルゴリズム',
-			'ニホン','トウキョウ','オオサカ','キョウト','ホッカイドウ',
-			'カンタン','ハヤイ','オソイ','タノシイ','ムズカシイ',
-			'ミライ','キオク','システム','ネット','コード'
+			'テスト' => '試験すること',
+			'サンプル' => '見本',
+			'デモ' => '実演',
+			'サ' => 'さ行の文字',
+			'ン' => 'ん行の文字',
+			'プ' => 'ぷ行の文字',
+			'ル' => 'る行の文字'
 		];
 		
 		// 2〜8文字あたりを採用
-		$words = array_values( array_filter( $words, function($w){ 
-			$len = $this->mb_len($w); 
-			return $len >= 2 && $len <= 8; 
-		}) );
+		$filtered_words = [];
+		foreach ($words as $word => $hint) {
+			$len = $this->mb_len($word);
+			if ($len >= 2 && $len <= 8) {
+				$filtered_words[$word] = $hint;
+			}
+		}
 		
-		return apply_filters( 'jpcw_dictionary', $words );
+		return apply_filters( 'jpcw_dictionary', $filtered_words );
 	}
 
 	/** マルチバイト長 */
@@ -305,26 +320,34 @@ class JPCrosswordGenerator {
 	 * - 余白は黒マス
 	 */
 	private function generate_puzzle( $size = 10 ) {
-		$grid = array_fill(0, $size, array_fill(0, $size, null));
+		$grid = array_fill(0, $size, array_fill(0, $size, ''));
+		$solution = array_fill(0, $size, array_fill(0, $size, ''));
 		$placed = [];
 		$words  = $this->dictionary();
 		shuffle($words);
 
 		$maxWords = 8; // 置き過ぎると詰むので控えめ
 
-		if ( empty($words) ) return [ 'grid' => [], 'size' => $size ];
+		if ( empty($words) ) return [ 'grid' => [], 'solution' => [], 'size' => $size ];
 
 		// 1語目：横、中央付近
-		$w1 = array_shift($words);
+		$w1 = array_key_first($words);
+		$hint1 = $words[$w1];
+		unset($words[$w1]);
 		$chars = $this->mb_split($w1);
 		if (count($chars) > $size) { $chars = array_slice($chars, 0, $size); }
 		$row = intval($size/2);
 		$startCol = intval(($size - count($chars))/2);
-		for($i=0;$i<count($chars);$i++){ $grid[$row][$startCol+$i] = $chars[$i]; }
-		$placed[] = [ 'word'=>$w1, 'row'=>$row, 'col'=>$startCol, 'dir'=>'H', 'len'=>count($chars) ];
+		
+		// グリッドに'INPUT'マーカー、ソリューションに正解文字を設定
+		for($i=0;$i<count($chars);$i++){ 
+			$grid[$row][$startCol+$i] = 'INPUT';
+			$solution[$row][$startCol+$i] = $chars[$i];
+		}
+		$placed[] = [ 'word'=>$w1, 'hint'=>$hint1, 'row'=>$row, 'col'=>$startCol, 'dir'=>'H', 'len'=>count($chars) ];
 
 		// 以降の語を交差配置
-		foreach( $words as $w ){
+		foreach( $words as $w => $hint ){
 			if ( count($placed) >= $maxWords ) break;
 			$chars = $this->mb_split($w);
 			$placedOnce = false;
@@ -341,8 +364,8 @@ class JPCrosswordGenerator {
 							$r0 = $p['row'] - $mi; // 新語の開始行
 							$c0 = $p['col'] + $pi; // 交点の列
 							if ( $this->fits($grid, $size, $r0, $c0, 'V', $chars) ) {
-								$this->place($grid, $r0, $c0, 'V', $chars);
-								$placed[] = [ 'word'=>$w, 'row'=>$r0, 'col'=>$c0, 'dir'=>'V', 'len'=>count($chars) ];
+								$this->place($grid, $solution, $r0, $c0, 'V', $chars);
+								$placed[] = [ 'word'=>$w, 'hint'=>$hint, 'row'=>$r0, 'col'=>$c0, 'dir'=>'V', 'len'=>count($chars) ];
 								$placedOnce = true; break 3;
 							}
 						} else {
@@ -350,8 +373,8 @@ class JPCrosswordGenerator {
 							$r0 = $p['row'] + $pi; // 交点の行
 							$c0 = $p['col'] - $mi; // 新語の開始列
 							if ( $this->fits($grid, $size, $r0, $c0, 'H', $chars) ) {
-								$this->place($grid, $r0, $c0, 'H', $chars);
-								$placed[] = [ 'word'=>$w, 'row'=>$r0, 'col'=>$c0, 'dir'=>'H', 'len'=>count($chars) ];
+								$this->place($grid, $solution, $r0, $c0, 'H', $chars);
+								$placed[] = [ 'word'=>$w, 'hint'=>$hint, 'row'=>$r0, 'col'=>$c0, 'dir'=>'H', 'len'=>count($chars) ];
 								$placedOnce = true; break 3;
 							}
 						}
@@ -367,6 +390,10 @@ class JPCrosswordGenerator {
 			}
 		}
 
+		// デバッグ用：グリッドの内容を確認
+		error_log('Generated grid: ' . print_r($grid, true));
+		error_log('Placed words: ' . print_r($placed, true));
+		
 		return [
 			'size' => $size,
 			'grid' => $grid, // 正解文字（# は黒マス）

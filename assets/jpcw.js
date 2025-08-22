@@ -1,199 +1,325 @@
 /**
  * ===== フロントエンド用 JS =====
  * ファイル: assets/jpcw.js
- * WordPressプラグイン用に最適化
+ * WordPressプラグイン用に最適化されたクロスワードゲーム
  */
 (function($){
 	'use strict';
 
 	/**
-	 * ボードの描画
+	 * 日本語の単語とヒントのリスト
 	 */
-	function renderBoard($wrap, data){
-		const size = data.size;
-		const grid = data.grid; // 文字 or '#'
-		const $board = $wrap.find('.jpcw-board').empty();
-		const $table = $('<table class="jpcw-grid" role="grid" aria-label="クロスワードパズル" />');
+	const crossword_data = {
+		words: [
+			{ word: 'サーバー', clue: 'データを保管したりサービスを提供したりするコンピュータ。' },
+			{ word: 'ドメイン', clue: 'インターネット上の住所のこと。' },
+			{ word: 'ブラウザ', clue: 'ウェブサイトを見るためのソフト。' },
+			{ word: 'コーディング', clue: 'コンピュータにわかる言葉でプログラムを書くこと。' },
+			{ word: 'デバッグ', clue: 'プログラムの間違いを見つけて直すこと。' },
+			{ word: 'プラグイン', clue: 'ソフトウェアに機能を追加する小さなプログラム。' },
+			{ word: 'キャッシュ', clue: '一度見たページの情報を一時的に保存しておく仕組み。' },
+			{ word: 'クッキー', clue: 'サイトがユーザー情報を一時的に保存する小さなファイル。' },
+			{ word: 'ファイアウォール', clue: 'ネットワークの安全を守るための「防火壁」。' },
+			{ word: 'レスポンシブ', clue: 'スマホなど、画面サイズに合わせて表示が変わるデザイン。' }
+		]
+	};
+
+	/**
+	 * クロスワードゲームのメインオブジェクト
+	 */
+	let crosswordGame = {
+		wordsData: [],
+		gridSize: 12,
+		grid: [],
+		solution: [],
+		placedWords: [],
+		isGameActive: false
+	};
+
+	/**
+	 * 初期化
+	 */
+	function init() {
+		crosswordGame.wordsData = crossword_data.words || [];
+		if (crosswordGame.wordsData.length === 0) return;
 		
-		for(let r=0; r<size; r++){
-			const $tr = $('<tr role="row" />');
-			for(let c=0; c<size; c++){
-				const val = grid[r][c];
-				const $td = $('<td class="jpcw-cell" role="gridcell" />');
-				
-				if(val === '#' || val === null){
-					$td.addClass('black').attr('aria-label', '黒マス');
-				} else {
-					const $inp = $('<input type="text" inputmode="text" maxlength="2" autocomplete="off" aria-label="マス目 ' + (r+1) + '-' + (c+1) + '" />');
-					$inp.attr('data-solution', val);
-					$inp.attr('data-row', r);
-					$inp.attr('data-col', c);
-					
-					// 日本語IME対策：compositionend で1文字確定
-					let composing = false;
-					$inp.on('compositionstart', () => composing = true);
-					$inp.on('compositionend', (e) => { 
-						composing = false; 
-						handleInput(e.currentTarget); 
-					});
-					$inp.on('input', (e) => { 
-						if(!composing) handleInput(e.currentTarget); 
-					});
-					
-					// キーボードナビゲーション
-					$inp.on('keydown', handleKeydown);
-					
-					$td.append($inp);
-				}
-				$tr.append($td);
-			}
-			$table.append($tr);
-		}
-		
-		$board.append($table).append('<div class="jpcw-status" role="status" aria-live="polite"></div>');
-		
-		// 最初の入力フィールドにフォーカス
-		$board.find('input:first').focus();
+		setupEventListeners();
+		newGame();
 	}
 
 	/**
-	 * 入力処理
+	 * イベントリスナーの設定
 	 */
-	function handleInput(el){
-		const $el = $(el);
-		let v = $el.val();
+	function setupEventListeners() {
+		$(document).on('click', '.jpcw-new', newGame);
+		$(document).on('click', '.jpcw-giveup', solvePuzzle);
+		$(document).on('keydown', '.crossword-input', handleKeyboardNavigation);
+		$(document).on('input', '.crossword-input', function() {
+			checkCompletion();
+		});
+	}
+
+	/**
+	 * クロスワードパズルの生成
+	 */
+	function generatePuzzle() {
+		crosswordGame.grid = Array(crosswordGame.gridSize).fill(null).map(() => Array(crosswordGame.gridSize).fill(''));
+		crosswordGame.solution = Array(crosswordGame.gridSize).fill(null).map(() => Array(crosswordGame.gridSize).fill(''));
+		crosswordGame.placedWords = [];
+
+		const shuffledWords = [...crosswordGame.wordsData].sort(() => 0.5 - Math.random());
 		
-		// 先頭の1文字だけ残す（サロゲート/結合文字を考慮して最大2バイトまで許容）
-		if(v.length > 1){
-			// 2文字以上入力された場合は先頭の1文字に切り詰め
-			v = Array.from(v)[0] || '';
-			$el.val(v);
-		}
-		
-		const ans = $el.data('solution');
-		$el.toggleClass('correct', v === ans);
-		
-		// 正解の場合、次の入力フィールドにフォーカス
-		if(v === ans && v !== ''){
-			setTimeout(() => {
-				const $next = $el.closest('td').next().find('input');
-				if($next.length > 0){
-					$next.focus();
+		// 最初の単語を配置
+		const firstWordData = shuffledWords.pop();
+		const firstWord = firstWordData.word;
+		const orientation = Math.random() < 0.5 ? 'across' : 'down';
+		const row = Math.floor(crosswordGame.gridSize / 2);
+		const col = Math.floor(crosswordGame.gridSize / 2) - Math.floor(firstWord.length / 2);
+		placeWord(firstWordData, row, col, orientation);
+
+		let attempts = 0;
+		while(shuffledWords.length > 0 && attempts < 200) {
+			const wordData = shuffledWords[0];
+			const word = wordData.word;
+			let placed = false;
+			
+			for (let i = 0; i < 100; i++) {
+				const intersection = findIntersection(word);
+				if (intersection) {
+					placeWord(wordData, intersection.row, intersection.col, intersection.orientation);
+					shuffledWords.shift();
+					placed = true;
+					break;
 				}
-			}, 100);
+			}
+			if (!placed) {
+				shuffledWords.shift();
+			}
+			attempts++;
+		}
+	}
+
+	/**
+	 * 単語の交差位置を探す
+	 */
+	function findIntersection(word) {
+		for (let i = 0; i < word.length; i++) {
+			const char = word[i];
+			for (const placed of crosswordGame.placedWords) {
+				for (let j = 0; j < placed.word.length; j++) {
+					if (placed.word[j] === char) {
+						const orientation = placed.orientation === 'across' ? 'down' : 'across';
+						const row = orientation === 'down' ? placed.row - i : placed.row + j;
+						const col = orientation === 'down' ? placed.col + j : placed.col - i;
+						
+						if(canPlaceWord(word, row, col, orientation)) {
+							return { row, col, orientation };
+						}
+					}
+				}
+			}
+		}
+		return null;
+	}
+
+	/**
+	 * 単語を配置できるかチェック
+	 */
+	function canPlaceWord(word, row, col, orientation) {
+		if (row < 0 || col < 0 || row >= crosswordGame.gridSize || col >= crosswordGame.gridSize) {
+			return false;
+		}
+
+		if (orientation === 'across') {
+			if (col + word.length > crosswordGame.gridSize) return false;
+			for (let i = 0; i < word.length; i++) {
+				const existingChar = crosswordGame.solution[row][col + i];
+				if (existingChar && existingChar !== word[i]) {
+					return false;
+				}
+			}
+		} else {
+			if (row + word.length > crosswordGame.gridSize) return false;
+			for (let i = 0; i < word.length; i++) {
+				const existingChar = crosswordGame.solution[row + i][col];
+				if (existingChar && existingChar !== word[i]) {
+					return false;
+				}
+			}
+		}
+		return true;
+	}
+
+	/**
+	 * 単語を配置
+	 */
+	function placeWord(wordData, row, col, orientation) {
+		const word = wordData.word;
+		for (let i = 0; i < word.length; i++) {
+			if (orientation === 'across') {
+				crosswordGame.grid[row][col + i] = 'INPUT';
+				crosswordGame.solution[row][col + i] = word[i];
+			} else {
+				crosswordGame.grid[row + i][col] = 'INPUT';
+				crosswordGame.solution[row + i][col] = word[i];
+			}
+		}
+		crosswordGame.placedWords.push({ ...wordData, row, col, orientation });
+	}
+
+	/**
+	 * グリッドの描画
+	 */
+	function renderGrid() {
+		const gridContainer = $('.jpcw-board');
+		gridContainer.empty();
+		
+		gridContainer.css({
+			'grid-template-columns': `repeat(${crosswordGame.gridSize}, 40px)`,
+			'grid-template-rows': `repeat(${crosswordGame.gridSize}, 40px)`
+		});
+
+		crosswordGame.placedWords.sort((a, b) => a.row - b.row || a.col - b.col);
+		let wordNumber = 1;
+		const numberedPositions = new Map();
+
+		for (const word of crosswordGame.placedWords) {
+			const posKey = `${word.row},${word.col}`;
+			if (!numberedPositions.has(posKey)) {
+				numberedPositions.set(posKey, wordNumber);
+				word.number = wordNumber;
+				wordNumber++;
+			} else {
+				word.number = numberedPositions.get(posKey);
+			}
+		}
+
+		for (let i = 0; i < crosswordGame.gridSize; i++) {
+			for (let j = 0; j < crosswordGame.gridSize; j++) {
+				const cell = $('<div>').addClass('jpcw-cell');
+				
+				if (crosswordGame.grid[i][j] === 'INPUT') {
+					const input = $('<input>').attr({
+						'type': 'text', 'maxlength': '1', 'data-row': i, 'data-col': j,
+						'autocomplete': 'off', 'spellcheck': 'false'
+					}).addClass('crossword-input');
+					cell.append(input);
+
+					const posKey = `${i},${j}`;
+					if (numberedPositions.has(posKey)) {
+						cell.append($('<span>').addClass('cell-number').text(numberedPositions.get(posKey)));
+					}
+				} else {
+					cell.addClass('empty-cell');
+				}
+				gridContainer.append(cell);
+			}
+		}
+		displayClues();
+	}
+
+	/**
+	 * ヒントの表示
+	 */
+	function displayClues() {
+		const acrossList = $('.jpcw-clues-across').empty();
+		const downList = $('.jpcw-clues-down').empty();
+
+		const uniqueWords = [...new Map(crosswordGame.placedWords.map(item => [item.number, item])).values()];
+		uniqueWords.sort((a,b) => a.number - b.number);
+		
+		for (const word of uniqueWords) {
+			const listItem = $('<li>').html(`<b>${word.number}.</b> ${word.clue}`);
+			if (word.orientation === 'across') {
+				acrossList.append(listItem);
+			} else {
+				downList.append(listItem);
+			}
 		}
 	}
 
 	/**
 	 * キーボードナビゲーション
 	 */
-	function handleKeydown(e){
-		const $el = $(e.currentTarget);
-		const $td = $el.closest('td');
-		const $tr = $td.closest('tr');
-		const $table = $tr.closest('table');
+	function handleKeyboardNavigation(e) {
+		const $current = $(e.target);
+		const row = parseInt($current.data('row'));
+		const col = parseInt($current.data('col'));
+		let $next;
 		
-		let $target = null;
-		
-		switch(e.key){
-			case 'ArrowUp':
-				e.preventDefault();
-				$target = $tr.prev().find('td').eq($td.index()).find('input');
-				break;
-			case 'ArrowDown':
-				e.preventDefault();
-				$target = $tr.next().find('td').eq($td.index()).find('input');
-				break;
-			case 'ArrowLeft':
-				e.preventDefault();
-				$target = $td.prev().find('input');
-				break;
-			case 'ArrowRight':
-				e.preventDefault();
-				$target = $td.next().find('input');
-				break;
-			case 'Tab':
-				// Tabキーはデフォルトの動作を許可
-				return;
+		switch(e.key) {
+			case "ArrowLeft": $next = $(`.crossword-input[data-row="${row}"][data-col="${col - 1}"]`); break;
+			case "ArrowUp": $next = $(`.crossword-input[data-row="${row - 1}"][data-col="${col}"]`); break;
+			case "ArrowRight": $next = $(`.crossword-input[data-row="${row}"][data-col="${col + 1}"]`); break;
+			case "ArrowDown": $next = $(`.crossword-input[data-row="${row + 1}"][data-col="${col}"]`); break;
+			default: return;
 		}
 		
-		if($target && $target.length > 0){
-			$target.focus();
+		if ($next && $next.length > 0) {
+			$next.focus();
+			e.preventDefault();
 		}
 	}
 
 	/**
-	 * 新規問題の要求
+	 * 完了チェック
 	 */
-	function requestNew($wrap){
-		const size = parseInt($wrap.data('size'), 10) || 10;
-		const $newBtn = $wrap.find('.jpcw-new');
-		const $giveupBtn = $wrap.find('.jpcw-giveup');
+	function checkCompletion() {
+		let isCorrect = true;
+		let filledCells = 0, totalCells = 0;
 		
-		// ボタンを無効化
-		$newBtn.prop('disabled', true).text(JPCW.i18n.loading);
-		$giveupBtn.prop('disabled', true);
-		
-		status($wrap, JPCW.i18n.loading);
-		
-		$.post(JPCW.ajax, { 
-			action: 'jpcw_generate', 
-			nonce: JPCW.nonce, 
-			size: size 
-		})
-		.done(function(resp){
-			if(resp && resp.success){
-				renderBoard($wrap, resp.data);
-				status($wrap, '');
+		$('.crossword-input').each(function() {
+			const row = $(this).data('row');
+			const col = $(this).data('col');
+			totalCells++;
+			
+			if (this.value !== '') {
+				filledCells++;
+				if (this.value !== crosswordGame.solution[row][col]) {
+					isCorrect = false;
+				}
 			} else {
-				status($wrap, resp.data?.message || JPCW.i18n.error);
+				isCorrect = false;
 			}
-		})
-		.fail(function(xhr, status, error){
-			console.error('AJAX Error:', error);
-			status($wrap, JPCW.i18n.error);
-		})
-		.always(function(){
-			// ボタンを再有効化
-			$newBtn.prop('disabled', false).text(JPCW.i18n.new);
-			$giveupBtn.prop('disabled', false);
 		});
+
+		if (isCorrect && filledCells === totalCells && totalCells > 0) {
+			showMessage('おめでとうございます！正解です！', 'success');
+			crosswordGame.isGameActive = false;
+			$('.crossword-input').prop('disabled', true);
+		}
 	}
 
 	/**
-	 * 全解答の表示
+	 * メッセージ表示
 	 */
-	function revealAll($wrap){
-		$wrap.find('input[data-solution]').each(function(){
-			const $input = $(this);
-			const ans = $input.data('solution');
-			$input.val(ans).addClass('revealed');
+	function showMessage(message, type) {
+		$('.jpcw-status').text(message).removeClass('success info error').addClass(type);
+	}
+
+	/**
+	 * パズルを解く
+	 */
+	function solvePuzzle() {
+		if (!crosswordGame.isGameActive && $('.crossword-input:disabled').length > 0) return;
+		$('.crossword-input').each(function() {
+			const row = $(this).data('row');
+			const col = $(this).data('col');
+			$(this).val(crosswordGame.solution[row][col]).prop('disabled', true);
 		});
-		
-		status($wrap, '全ての答えを表示しました');
+		showMessage('正解が表示されました。', 'info');
+		crosswordGame.isGameActive = false;
 	}
 
 	/**
-	 * ステータス表示
+	 * 新規ゲーム
 	 */
-	function status($wrap, text){ 
-		$wrap.find('.jpcw-status').text(text); 
+	function newGame() {
+		crosswordGame.isGameActive = true;
+		generatePuzzle();
+		renderGrid();
+		showMessage('新しい問題が生成されました。', 'info');
 	}
-
-	/**
-	 * イベントハンドラーの設定
-	 */
-	$(document).on('click', '.jpcw-new', function(e){
-		e.preventDefault();
-		const $wrap = $(this).closest('.jpcw-wrapper');
-		requestNew($wrap);
-	});
-	
-	$(document).on('click', '.jpcw-giveup', function(e){
-		e.preventDefault();
-		const $wrap = $(this).closest('.jpcw-wrapper');
-		revealAll($wrap);
-	});
 
 	/**
 	 * 初期化：ショートコード描画箇所で自動生成
@@ -202,7 +328,7 @@
 		$('.jpcw-wrapper').each(function(){
 			const $wrap = $(this);
 			// 少し遅延させてDOMの準備を確実にする
-			setTimeout(() => requestNew($wrap), 100);
+			setTimeout(() => init(), 100);
 		});
 	});
 
