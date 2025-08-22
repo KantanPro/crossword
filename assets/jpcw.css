@@ -1,0 +1,250 @@
+/**
+ * ===== フロントエンド用 CSS =====
+ * ファイル: assets/jpcw.css
+ * WordPressプラグイン用に最適化
+ */
+
+/* 基本レイアウト */
+.jpcw-wrapper {
+	max-width: 640px;
+	margin: 1rem auto;
+	font-family: system-ui, -apple-system, 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif;
+	background: #fff;
+	border-radius: 8px;
+	box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+	padding: 1.5rem;
+}
+
+/* コントロールボタン */
+.jpcw-controls {
+	display: flex;
+	gap: 0.75rem;
+	margin-bottom: 1rem;
+	flex-wrap: wrap;
+}
+
+.jpcw-controls button {
+	padding: 0.75rem 1rem;
+	border-radius: 6px;
+	border: 1px solid #ddd;
+	cursor: pointer;
+	font-size: 14px;
+	font-weight: 500;
+	transition: all 0.2s ease;
+	background: #fff;
+	color: #333;
+}
+
+.jpcw-controls button:hover {
+	background: #f8f9fa;
+	border-color: #adb5bd;
+}
+
+.jpcw-controls button:active {
+	transform: translateY(1px);
+}
+
+.jpcw-controls button:disabled {
+	opacity: 0.6;
+	cursor: not-allowed;
+	transform: none;
+}
+
+/* WordPress標準ボタンスタイルとの統合 */
+.jpcw-controls .button-primary {
+	background: #0073aa;
+	border-color: #0073aa;
+	color: #fff;
+}
+
+.jpcw-controls .button-primary:hover {
+	background: #005a87;
+	border-color: #005a87;
+}
+
+.jpcw-controls .button-secondary {
+	background: #f7f7f7;
+	border-color: #ccc;
+	color: #555;
+}
+
+.jpcw-controls .button-secondary:hover {
+	background: #eee;
+	border-color: #999;
+}
+
+/* ボード */
+.jpcw-board {
+	display: inline-block;
+	border: 2px solid #ddd;
+	border-radius: 6px;
+	box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+	overflow: hidden;
+}
+
+/* グリッド */
+.jpcw-grid {
+	border-collapse: collapse;
+	margin: 0;
+}
+
+.jpcw-grid td {
+	width: 40px;
+	height: 40px;
+	border: 1px solid #ccc;
+	padding: 0;
+	text-align: center;
+	vertical-align: middle;
+	position: relative;
+}
+
+/* 黒マス */
+.jpcw-cell.black {
+	background: #222;
+	border-color: #111;
+}
+
+/* 入力フィールド */
+.jpcw-cell input {
+	width: 100%;
+	height: 100%;
+	text-align: center;
+	border: 0;
+	outline: none;
+	font-size: 18px;
+	background: #fff;
+	font-family: inherit;
+	box-sizing: border-box;
+}
+
+.jpcw-cell input:focus {
+	background: #f0f8ff;
+	box-shadow: inset 0 0 0 2px #0073aa;
+}
+
+/* 正解状態 */
+.jpcw-cell input.correct {
+	background: #d4edda;
+	color: #155724;
+	border: 1px solid #c3e6cb;
+}
+
+/* 解答表示状態 */
+.jpcw-cell input.revealed {
+	background: #e2e3e5;
+	color: #383d41;
+	border: 1px solid #d6d8db;
+}
+
+/* ステータス表示 */
+.jpcw-status {
+	margin-top: 0.75rem;
+	font-size: 0.9rem;
+	color: #666;
+	text-align: center;
+	min-height: 1.2em;
+}
+
+/* レスポンシブ対応 */
+@media (max-width: 768px) {
+	.jpcw-wrapper {
+		margin: 0.5rem;
+		padding: 1rem;
+	}
+	
+	.jpcw-controls {
+		flex-direction: column;
+	}
+	
+	.jpcw-controls button {
+		width: 100%;
+	}
+	
+	.jpcw-grid td {
+		width: 32px;
+		height: 32px;
+	}
+	
+	.jpcw-cell input {
+		font-size: 16px;
+	}
+}
+
+@media (max-width: 480px) {
+	.jpcw-wrapper {
+		padding: 0.75rem;
+	}
+	
+	.jpcw-grid td {
+		width: 28px;
+		height: 28px;
+	}
+	
+	.jpcw-cell input {
+		font-size: 14px;
+	}
+}
+
+/* アクセシビリティ */
+.jpcw-wrapper:focus-within {
+	outline: 2px solid #0073aa;
+	outline-offset: 2px;
+}
+
+/* 高コントラストモード対応 */
+@media (prefers-contrast: high) {
+	.jpcw-wrapper {
+		border: 2px solid #000;
+	}
+	
+	.jpcw-controls button {
+		border: 2px solid #000;
+	}
+	
+	.jpcw-grid td {
+		border: 1px solid #000;
+	}
+	
+	.jpcw-cell.black {
+		background: #000;
+	}
+}
+
+/* ダークモード対応 */
+@media (prefers-color-scheme: dark) {
+	.jpcw-wrapper {
+		background: #1e1e1e;
+		color: #fff;
+	}
+	
+	.jpcw-controls button {
+		background: #333;
+		border-color: #555;
+		color: #fff;
+	}
+	
+	.jpcw-controls button:hover {
+		background: #444;
+		border-color: #666;
+	}
+	
+	.jpcw-cell input {
+		background: #2d2d2d;
+		color: #fff;
+	}
+	
+	.jpcw-cell input:focus {
+		background: #3d3d3d;
+	}
+	
+	.jpcw-cell input.correct {
+		background: #1e4d2b;
+		color: #d4edda;
+	}
+	
+	.jpcw-cell input.revealed {
+		background: #4d4d4d;
+		color: #e2e3e5;
+	}
+}
+
