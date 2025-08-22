@@ -1,0 +1,357 @@
+.crossword-game-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+    font-family: 'Hiragino Kaku Gothic ProN', 'Yu Gothic', 'Meiryo', sans-serif;
+}
+
+.crossword-header {
+    text-align: center;
+    margin-bottom: 30px;
+}
+
+.crossword-header h2 {
+    color: #333;
+    margin-bottom: 20px;
+    font-size: 2em;
+}
+
+.crossword-controls {
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+    flex-wrap: wrap;
+}
+
+.btn {
+    padding: 12px 24px;
+    border: none;
+    border-radius: 6px;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-decoration: none;
+    display: inline-block;
+}
+
+.btn-primary {
+    background-color: #007cba;
+    color: white;
+}
+
+.btn-primary:hover {
+    background-color: #005a87;
+    transform: translateY(-2px);
+}
+
+.btn-warning {
+    background-color: #ff6b35;
+    color: white;
+}
+
+.btn-warning:hover {
+    background-color: #e55a2b;
+    transform: translateY(-2px);
+}
+
+.btn-success {
+    background-color: #28a745;
+    color: white;
+}
+
+.btn-success:hover {
+    background-color: #1e7e34;
+    transform: translateY(-2px);
+}
+
+.crossword-content {
+    display: flex;
+    gap: 30px;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+.crossword-grid-container {
+    flex: 0 0 auto;
+}
+
+.crossword-grid {
+    border: 3px solid #333;
+    display: inline-block;
+    background-color: #fff;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+.crossword-row {
+    display: flex;
+}
+
+.crossword-cell {
+    width: 40px;
+    height: 40px;
+    border: 1px solid #ccc;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    background-color: #fff;
+    transition: all 0.2s ease;
+}
+
+.crossword-cell.filled {
+    background-color: #f8f9fa;
+    border-color: #dee2e6;
+}
+
+.crossword-cell.empty {
+    background-color: #fff;
+}
+
+.crossword-cell.highlighted {
+    background-color: #fff3cd;
+    border-color: #ffc107;
+    box-shadow: inset 0 0 0 2px #ffc107;
+}
+
+.crossword-cell .cell-letter {
+    font-size: 18px;
+    font-weight: bold;
+    color: #333;
+}
+
+.crossword-cell .cell-input {
+    width: 100%;
+    height: 100%;
+    border: none;
+    text-align: center;
+    font-size: 18px;
+    font-weight: bold;
+    background: transparent;
+    outline: none;
+    color: #333;
+}
+
+.crossword-cell .cell-input:focus {
+    background-color: #e3f2fd;
+}
+
+.crossword-cell .cell-input.revealed {
+    background-color: #d4edda;
+    color: #155724;
+    font-weight: bold;
+}
+
+.crossword-clues {
+    flex: 1;
+    min-width: 300px;
+    max-width: 500px;
+}
+
+.crossword-clues h3 {
+    color: #333;
+    margin-bottom: 20px;
+    font-size: 1.5em;
+    text-align: center;
+}
+
+.clues-container {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.across-clues, .down-clues {
+    background-color: #f8f9fa;
+    padding: 20px;
+    border-radius: 8px;
+    border: 1px solid #dee2e6;
+}
+
+.across-clues h4, .down-clues h4 {
+    color: #495057;
+    margin-bottom: 15px;
+    font-size: 1.2em;
+    border-bottom: 2px solid #007cba;
+    padding-bottom: 5px;
+}
+
+.across-clues h4 {
+    border-bottom-color: #007cba;
+}
+
+.down-clues h4 {
+    border-bottom-color: #28a745;
+}
+
+.clues-container ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.clue-item {
+    padding: 8px 0;
+    border-bottom: 1px solid #e9ecef;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+    border-radius: 4px;
+    padding: 8px;
+}
+
+.clue-item:hover {
+    background-color: #e9ecef;
+}
+
+.clue-item:last-child {
+    border-bottom: none;
+}
+
+.clue-number {
+    font-weight: bold;
+    color: #007cba;
+    margin-right: 10px;
+    min-width: 25px;
+    display: inline-block;
+}
+
+.clue-text {
+    color: #495057;
+    line-height: 1.4;
+}
+
+.crossword-status {
+    margin-top: 30px;
+    text-align: center;
+}
+
+.status-message {
+    padding: 15px;
+    border-radius: 6px;
+    margin-bottom: 20px;
+    font-weight: bold;
+    display: none;
+}
+
+.status-success {
+    background-color: #d4edda;
+    color: #155724;
+    border: 1px solid #c3e6cb;
+}
+
+.status-error {
+    background-color: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f5c6cb;
+}
+
+.status-warning {
+    background-color: #fff3cd;
+    color: #856404;
+    border: 1px solid #ffeaa7;
+}
+
+.status-info {
+    background-color: #d1ecf1;
+    color: #0c5460;
+    border: 1px solid #bee5eb;
+}
+
+.progress-info {
+    font-size: 18px;
+    color: #495057;
+    font-weight: bold;
+}
+
+/* レスポンシブデザイン */
+@media (max-width: 768px) {
+    .crossword-content {
+        flex-direction: column;
+        align-items: center;
+    }
+    
+    .crossword-grid {
+        transform: scale(0.8);
+        transform-origin: top left;
+    }
+    
+    .crossword-clues {
+        min-width: 100%;
+        max-width: 100%;
+    }
+    
+    .crossword-controls {
+        flex-direction: column;
+        align-items: center;
+    }
+    
+    .btn {
+        width: 200px;
+    }
+}
+
+@media (max-width: 480px) {
+    .crossword-grid {
+        transform: scale(0.6);
+        transform-origin: top left;
+    }
+    
+    .crossword-cell {
+        width: 35px;
+        height: 35px;
+    }
+    
+    .crossword-cell .cell-letter,
+    .crossword-cell .cell-input {
+        font-size: 16px;
+    }
+}
+
+/* アニメーション */
+.crossword-cell {
+    animation: fadeIn 0.5s ease-in-out;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: scale(0.8);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+.crossword-cell.highlighted {
+    animation: highlight 0.3s ease-in-out;
+}
+
+@keyframes highlight {
+    0% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.05);
+    }
+    100% {
+        transform: scale(1);
+    }
+}
+
+/* フォーカス時のスタイル */
+.crossword-cell .cell-input:focus {
+    box-shadow: inset 0 0 0 2px #007cba;
+}
+
+/* 正解時のスタイル */
+.crossword-cell.correct .cell-input {
+    background-color: #d4edda;
+    color: #155724;
+}
+
+/* 不正解時のスタイル */
+.crossword-cell.incorrect .cell-input {
+    background-color: #f8d7da;
+    color: #721c24;
+}

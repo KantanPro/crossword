@@ -1,204 +1,245 @@
 <?php
 /**
- * Plugin Name: Crossword Game
+ * Plugin Name: Crossword Game Generator
  * Plugin URI: https://example.com/crossword-game
- * Description: インタラクティブなクロスワードゲームを提供するWordPressプラグインです。
+ * Description: 自動生成されるクロスワードゲームを提供するWordPressプラグイン
  * Version: 1.0.0
  * Author: Your Name
  * License: GPL v2 or later
  * Text Domain: crossword-game
- * Domain Path: /languages
  */
 
-// 直接アクセスを防ぐ
+// セキュリティチェック
 if (!defined('ABSPATH')) {
     exit;
 }
 
-// プラグインの定数定義
-define('CROSSWORD_PLUGIN_URL', plugin_dir_url(__FILE__));
-define('CROSSWORD_PLUGIN_PATH', plugin_dir_path(__FILE__));
-define('CROSSWORD_PLUGIN_VERSION', '1.0.0');
-
-// プラグインの初期化
-function crossword_plugin_init() {
-    // テキストドメインの読み込み
-    load_plugin_textdomain('crossword-game', false, dirname(plugin_basename(__FILE__)) . '/languages');
-}
-add_action('init', 'crossword_plugin_init');
-
-// プラグインの有効化時の処理
-function crossword_plugin_activate() {
-    error_log('Crossword plugin: Activation started');
+// プラグインクラスの定義
+class CrosswordGamePlugin {
     
-    try {
-        // データベーステーブルの作成
-        crossword_create_tables();
-        error_log('Crossword plugin: Tables created successfully');
+    public function __construct() {
+        add_action('init', array($this, 'init'));
+        add_action('wp_enqueue_scripts', array($this, 'enqueue_scripts'));
+        add_shortcode('crossword', array($this, 'crossword_shortcode'));
+        add_action('wp_ajax_generate_crossword', array($this, 'generate_crossword_ajax'));
+        add_action('wp_ajax_nopriv_generate_crossword', array($this, 'generate_crossword_ajax'));
+        add_action('wp_ajax_check_answer', array($this, 'check_answer_ajax'));
+        add_action('wp_ajax_nopriv_check_answer', array($this, 'check_answer_ajax'));
+        add_action('wp_ajax_give_up', array($this, 'give_up_ajax'));
+        add_action('wp_ajax_nopriv_give_up', array($this, 'give_up_ajax'));
+    }
+    
+    public function init() {
+        // 初期化処理
+    }
+    
+    public function enqueue_scripts() {
+        wp_enqueue_script('crossword-game', plugin_dir_url(__FILE__) . 'assets/js/crossword-game.js', array('jquery'), '1.0.0', true);
+        wp_enqueue_style('crossword-game', plugin_dir_url(__FILE__) . 'assets/css/crossword-game.css', array(), '1.0.0');
         
-        // デフォルトのパズルデータを挿入
-        crossword_insert_default_puzzle();
-        error_log('Crossword plugin: Default puzzle inserted successfully');
+        wp_localize_script('crossword-game', 'crossword_ajax', array(
+            'ajax_url' => admin_url('admin-ajax.php'),
+            'nonce' => wp_create_nonce('crossword_nonce')
+        ));
+    }
+    
+    public function crossword_shortcode($atts) {
+        $default_atts = array(
+            'size' => '10x10',
+            'difficulty' => 'medium'
+        );
+        $atts = shortcode_atts($default_atts, $atts);
         
-        // リライトルールのフラッシュ
-        flush_rewrite_rules();
-        error_log('Crossword plugin: Rewrite rules flushed');
+        $crossword_data = $this->generate_crossword($atts['size'], $atts['difficulty']);
         
-        error_log('Crossword plugin: Activation completed successfully');
-    } catch (Exception $e) {
-        error_log('Crossword plugin activation error: ' . $e->getMessage());
-    } catch (Error $e) {
-        error_log('Crossword plugin activation fatal error: ' . $e->getMessage());
-    }
-}
-register_activation_hook(__FILE__, 'crossword_plugin_activate');
-
-// プラグインの無効化時の処理
-function crossword_plugin_deactivate() {
-    // リライトルールのフラッシュ
-    flush_rewrite_rules();
-}
-register_deactivation_hook(__FILE__, 'crossword_plugin_deactivate');
-
-// データベーステーブルの作成
-function crossword_create_tables() {
-    global $wpdb;
-    
-    $charset_collate = $wpdb->get_charset_collate();
-    
-    // パズルテーブル
-    $table_puzzles = $wpdb->prefix . 'crossword_puzzles';
-    $sql_puzzles = "CREATE TABLE $table_puzzles (
-        id mediumint(9) NOT NULL AUTO_INCREMENT,
-        title varchar(255) NOT NULL,
-        description text,
-        difficulty enum('easy', 'medium', 'hard') DEFAULT 'medium',
-        grid_data longtext NOT NULL,
-        words_data longtext NOT NULL,
-        hints_data longtext NOT NULL,
-        created_at datetime DEFAULT CURRENT_TIMESTAMP,
-        updated_at datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        PRIMARY KEY (id)
-    ) $charset_collate;";
-    
-    // ユーザー進捗テーブル
-    $table_progress = $wpdb->prefix . 'crossword_progress';
-    $sql_progress = "CREATE TABLE $table_progress (
-        id mediumint(9) NOT NULL AUTO_INCREMENT,
-        user_id bigint(20) NOT NULL,
-        puzzle_id mediumint(9) NOT NULL,
-        progress_data longtext NOT NULL,
-        completed tinyint(1) DEFAULT 0,
-        time_spent int(11) DEFAULT 0,
-        started_at datetime DEFAULT CURRENT_TIMESTAMP,
-        completed_at datetime DEFAULT NULL,
-        PRIMARY KEY (id),
-        UNIQUE KEY user_puzzle (user_id, puzzle_id)
-    ) $charset_collate;";
-    
-    require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
-    
-    // エラーハンドリングを追加
-    $result_puzzles = dbDelta($sql_puzzles);
-    $result_progress = dbDelta($sql_progress);
-    
-    // エラーログの記録
-    if (is_wp_error($result_puzzles) || is_wp_error($result_progress)) {
-        error_log('Crossword plugin: Database table creation failed');
-        if (is_wp_error($result_puzzles)) {
-            error_log('Puzzles table error: ' . $result_puzzles->get_error_message());
-        }
-        if (is_wp_error($result_progress)) {
-            error_log('Progress table error: ' . $result_progress->get_error_message());
-        }
-    }
-}
-
-// デフォルトのパズルデータを挿入
-function crossword_insert_default_puzzle() {
-    global $wpdb;
-    
-    $table_puzzles = $wpdb->prefix . 'crossword_puzzles';
-    
-    // テーブルが存在するかチェック
-    if ($wpdb->get_var("SHOW TABLES LIKE '$table_puzzles'") != $table_puzzles) {
-        error_log('Crossword plugin: Puzzles table does not exist');
-        return;
+        ob_start();
+        include plugin_dir_path(__FILE__) . 'templates/crossword-game.php';
+        return ob_get_clean();
     }
     
-    // 既存のデータがあるかチェック
-    $existing = $wpdb->get_var("SELECT COUNT(*) FROM $table_puzzles");
-    if ($existing > 0) {
-        return;
+    public function generate_crossword($size = '10x10', $difficulty = 'medium') {
+        $sizes = explode('x', $size);
+        $width = intval($sizes[0]);
+        $height = intval($sizes[1]);
+        
+        // 日本語の単語リスト（サンプル）
+        $words = $this->get_word_list($difficulty);
+        
+        // クロスワード生成ロジック
+        $crossword = $this->create_crossword_grid($width, $height, $words);
+        
+        return $crossword;
     }
     
-    // サンプルパズルのデータ
-    $sample_puzzle = array(
-        'title' => 'サンプルクロスワード',
-        'description' => '基本的な単語を使ったクロスワードパズルです。',
-        'difficulty' => 'easy',
-        'grid_data' => json_encode(array(
-            'size' => 5,
-            'grid' => array(
-                array('H', 'E', 'L', 'L', 'O'),
-                array('E', 'A', 'P', 'P', 'L'),
-                array('L', 'P', 'L', 'E', 'E'),
-                array('L', 'P', 'E', 'A', 'R'),
-                array('O', 'E', 'E', 'R', 'S')
+    private function get_word_list($difficulty) {
+        // 難易度に応じた単語リスト
+        $word_lists = array(
+            'easy' => array(
+                'こんにちは', 'さようなら', 'おはよう', 'こんばんは',
+                'ありがとう', 'すみません', 'お疲れ様', 'お元気ですか',
+                'いただきます', 'ごちそうさま'
+            ),
+            'medium' => array(
+                'プログラミング', 'ウェブサイト', 'インターネット', 'コンピュータ',
+                'スマートフォン', 'アプリケーション', 'データベース', 'サーバー',
+                'ネットワーク', 'セキュリティ'
+            ),
+            'hard' => array(
+                'アルゴリズム', 'フレームワーク', 'アーキテクチャ', 'インフラストラクチャ',
+                'オブジェクト指向', 'データ構造', 'パフォーマンス', 'スケーラビリティ',
+                'マイクロサービス', 'クラウドコンピューティング'
             )
-        )),
-        'words_data' => json_encode(array(
-            'HELLO' => array('row' => 0, 'col' => 0, 'direction' => 'horizontal'),
-            'APPLE' => array('row' => 1, 'col' => 1, 'direction' => 'horizontal'),
-            'PEAR' => array('row' => 3, 'col' => 1, 'direction' => 'horizontal'),
-            'HELP' => array('row' => 0, 'col' => 0, 'direction' => 'vertical'),
-            'EARS' => array('row' => 0, 'col' => 4, 'direction' => 'vertical')
-        )),
-        'hints_data' => json_encode(array(
-            'HELLO' => '挨拶の言葉',
-            'APPLE' => '赤い果物',
-            'PEAR' => '洋ナシ',
-            'HELP' => '助ける',
-            'EARS' => '聞くための器官'
-        ))
-    );
-    
-    $result = $wpdb->insert($table_puzzles, $sample_puzzle);
-    
-    if ($result === false) {
-        error_log('Crossword plugin: Failed to insert default puzzle: ' . $wpdb->last_error);
-    }
-}
-
-// 必要なファイルを読み込み
-require_once CROSSWORD_PLUGIN_PATH . 'includes/class-crossword-game.php';
-require_once CROSSWORD_PLUGIN_PATH . 'includes/class-crossword-admin.php';
-require_once CROSSWORD_PLUGIN_PATH . 'includes/class-crossword-generator.php';
-
-// プラグインの初期化
-function crossword_init() {
-    error_log('Crossword plugin: Initialization started');
-    
-    try {
-        // ゲームクラスの初期化
-        error_log('Crossword plugin: Initializing Crossword_Game class');
-        new Crossword_Game();
-        error_log('Crossword plugin: Crossword_Game class initialized successfully');
+        );
         
-        // 管理画面クラスの初期化
-        if (is_admin()) {
-            error_log('Crossword plugin: Initializing Crossword_Admin class');
-            new Crossword_Admin();
-            error_log('Crossword plugin: Crossword_Admin class initialized successfully');
+        return isset($word_lists[$difficulty]) ? $word_lists[$difficulty] : $word_lists['medium'];
+    }
+    
+    private function create_crossword_grid($width, $height, $words) {
+        // グリッドの初期化
+        $grid = array();
+        for ($i = 0; $i < $height; $i++) {
+            $grid[$i] = array();
+            for ($j = 0; $j < $width; $j++) {
+                $grid[$i][$j] = '';
+            }
         }
         
-        error_log('Crossword plugin: Initialization completed successfully');
-    } catch (Exception $e) {
-        error_log('Crossword plugin initialization error: ' . $e->getMessage());
-        error_log('Crossword plugin initialization error trace: ' . $e->getTraceAsString());
-    } catch (Error $e) {
-        error_log('Crossword plugin fatal error: ' . $e->getMessage());
-        error_log('Crossword plugin fatal error trace: ' . $e->getTraceAsString());
+        $placed_words = array();
+        $clues = array();
+        
+        // 単語を配置
+        foreach ($words as $word) {
+            $placed = $this->place_word($grid, $word, $placed_words);
+            if ($placed) {
+                $placed_words[] = $placed;
+                $clues[] = array(
+                    'word' => $word,
+                    'clue' => $this->generate_clue($word),
+                    'start_x' => $placed['start_x'],
+                    'start_y' => $placed['start_y'],
+                    'direction' => $placed['direction']
+                );
+            }
+        }
+        
+        return array(
+            'grid' => $grid,
+            'clues' => $clues,
+            'width' => $width,
+            'height' => $height
+        );
+    }
+    
+    private function place_word($grid, $word, $placed_words) {
+        $max_attempts = 100;
+        $attempts = 0;
+        
+        while ($attempts < $max_attempts) {
+            $direction = rand(0, 1); // 0: 横, 1: 縦
+            $start_x = rand(0, count($grid[0]) - 1);
+            $start_y = rand(0, count($grid) - 1);
+            
+            if ($this->can_place_word($grid, $word, $start_x, $start_y, $direction)) {
+                $this->place_word_in_grid($grid, $word, $start_x, $start_y, $direction);
+                return array(
+                    'word' => $word,
+                    'start_x' => $start_x,
+                    'start_y' => $start_y,
+                    'direction' => $direction
+                );
+            }
+            
+            $attempts++;
+        }
+        
+        return false;
+    }
+    
+    private function can_place_word($grid, $word, $start_x, $start_y, $direction) {
+        $word_length = mb_strlen($word);
+        
+        if ($direction == 0) { // 横
+            if ($start_x + $word_length > count($grid[0])) {
+                return false;
+            }
+            
+            for ($i = 0; $i < $word_length; $i++) {
+                $x = $start_x + $i;
+                $y = $start_y;
+                
+                if ($grid[$y][$x] !== '' && $grid[$y][$x] !== mb_substr($word, $i, 1)) {
+                    return false;
+                }
+            }
+        } else { // 縦
+            if ($start_y + $word_length > count($grid)) {
+                return false;
+            }
+            
+            for ($i = 0; $i < $word_length; $i++) {
+                $x = $start_x;
+                $y = $start_y + $i;
+                
+                if ($grid[$y][$x] !== '' && $grid[$y][$x] !== mb_substr($word, $i, 1)) {
+                    return false;
+                }
+            }
+        }
+        
+        return true;
+    }
+    
+    private function place_word_in_grid(&$grid, $word, $start_x, $start_y, $direction) {
+        $word_length = mb_strlen($word);
+        
+        if ($direction == 0) { // 横
+            for ($i = 0; $i < $word_length; $i++) {
+                $grid[$start_y][$start_x + $i] = mb_substr($word, $i, 1);
+            }
+        } else { // 縦
+            for ($i = 0; $i < $word_length; $i++) {
+                $grid[$start_y + $i][$start_x] = mb_substr($word, $i, 1);
+            }
+        }
+    }
+    
+    private function generate_clue($word) {
+        // 単語のヒントを生成（実際の実装ではより詳細なヒントが必要）
+        return "「{$word}」に関連する言葉";
+    }
+    
+    // AJAXハンドラー
+    public function generate_crossword_ajax() {
+        check_ajax_referer('crossword_nonce', 'nonce');
+        
+        $size = isset($_POST['size']) ? sanitize_text_field($_POST['size']) : '10x10';
+        $difficulty = isset($_POST['difficulty']) ? sanitize_text_field($_POST['difficulty']) : 'medium';
+        
+        $crossword = $this->generate_crossword($size, $difficulty);
+        
+        wp_send_json_success($crossword);
+    }
+    
+    public function check_answer_ajax() {
+        check_ajax_referer('crossword_nonce', 'nonce');
+        
+        $answer = isset($_POST['answer']) ? sanitize_text_field($_POST['answer']) : '';
+        $word = isset($_POST['word']) ? sanitize_text_field($_POST['word']) : '';
+        
+        $is_correct = ($answer === $word);
+        
+        wp_send_json_success(array('correct' => $is_correct));
+    }
+    
+    public function give_up_ajax() {
+        check_ajax_referer('crossword_nonce', 'nonce');
+        
+        $crossword_data = isset($_POST['crossword_data']) ? $_POST['crossword_data'] : array();
+        
+        // ギブアップ時の処理
+        wp_send_json_success(array('message' => 'ギブアップしました'));
     }
 }
-add_action('plugins_loaded', 'crossword_init');
+
+// プラグインの初期化
+$crossword_plugin = new CrosswordGamePlugin();
