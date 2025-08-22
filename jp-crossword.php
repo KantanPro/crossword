@@ -1,19 +1,21 @@
 <?php
 /**
  * Plugin Name: Japanese Crossword Generator
- * Plugin URI: https://example.com/jp-crossword
+ * Plugin URI: https://github.com/KantanPro/crossword
  * Description: 日本語のクロスワード（文字埋め）を自動生成して表示するプラグイン。ショートコードは [crossword] 。「新規問題」と「ギブアップ（答えを表示）」ボタンをフロントに設置。
  * Version: 1.0.0
  * Requires at least: 5.0
  * Tested up to: 6.4
  * Requires PHP: 7.4
- * Author: Your Name
- * Author URI: https://example.com
+ * Author: KantanPro
+ * Author URI: https://github.com/KantanPro
  * License: GPL-2.0+
  * License URI: http://www.gnu.org/licenses/gpl-2.0.txt
  * Text Domain: jp-crossword
  * Domain Path: /languages
  * Network: false
+ * GitHub Plugin URI: KantanPro/crossword
+ * Update URI: https://github.com/KantanPro/crossword
  */
 
 // 直接アクセスを防ぐ
@@ -26,6 +28,226 @@ define( 'JPCW_VERSION', '1.0.0' );
 define( 'JPCW_PLUGIN_FILE', __FILE__ );
 define( 'JPCW_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'JPCW_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
+define( 'JPCW_GITHUB_REPO', 'KantanPro/crossword' );
+
+/**
+ * GitHubリリースチェッカークラス
+ */
+class JPCW_GitHub_Updater {
+	private $plugin_slug;
+	private $github_repo;
+	private $plugin_file;
+	private $github_response;
+	private $access_token;
+
+	public function __construct( $plugin_file, $github_repo ) {
+		$this->plugin_file = $plugin_file;
+		$this->github_repo = $github_repo;
+		$this->plugin_slug = basename( dirname( $plugin_file ) );
+
+		// GitHub Personal Access Token（設定可能）
+		$this->access_token = get_option( 'jpcw_github_token', '' );
+
+		// フックの追加
+		add_filter( 'pre_set_site_transient_update_plugins', [ $this, 'check_update' ] );
+		add_filter( 'plugins_api', [ $this, 'plugin_info' ], 10, 3 );
+		add_filter( 'upgrader_post_install', [ $this, 'upgrader_post_install' ], 10, 3 );
+		
+		// 管理画面での設定
+		add_action( 'admin_init', [ $this, 'admin_init' ] );
+		add_action( 'admin_menu', [ $this, 'admin_menu' ] );
+	}
+
+	/**
+	 * 管理画面の初期化
+	 */
+	public function admin_init() {
+		register_setting( 'jpcw_github_settings', 'jpcw_github_token' );
+	}
+
+	/**
+	 * 管理メニューの追加
+	 */
+	public function admin_menu() {
+		add_submenu_page(
+			'options-general.php',
+			__( 'GitHub Settings', 'jp-crossword' ),
+			__( 'GitHub Settings', 'jp-crossword' ),
+			'manage_options',
+			'jp-crossword-github',
+			[ $this, 'github_settings_page' ]
+		);
+	}
+
+	/**
+	 * GitHub設定ページ
+	 */
+	public function github_settings_page() {
+		?>
+		<div class="wrap">
+			<h1><?php _e( 'GitHub Settings', 'jp-crossword' ); ?></h1>
+			<form method="post" action="options.php">
+				<?php
+				settings_fields( 'jpcw_github_settings' );
+				?>
+				<table class="form-table">
+					<tr>
+						<th scope="row">
+							<label for="jpcw_github_token"><?php _e( 'GitHub Personal Access Token', 'jp-crossword' ); ?></label>
+						</th>
+						<td>
+							<input type="text" id="jpcw_github_token" name="jpcw_github_token" 
+								   value="<?php echo esc_attr( get_option( 'jpcw_github_token', '' ) ); ?>" 
+								   class="regular-text" />
+							<p class="description">
+								<?php _e( 'GitHub APIのレート制限を回避するために、Personal Access Tokenを設定することをお勧めします。', 'jp-crossword' ); ?>
+								<br>
+								<a href="https://github.com/settings/tokens" target="_blank"><?php _e( 'GitHubでトークンを生成', 'jp-crossword' ); ?></a>
+							</p>
+						</td>
+					</tr>
+				</table>
+				<?php submit_button(); ?>
+			</form>
+		</div>
+		<?php
+	}
+
+	/**
+	 * 更新チェック
+	 */
+	public function check_update( $transient ) {
+		if ( empty( $transient->checked ) ) {
+			return $transient;
+		}
+
+		// 最新リリース情報を取得
+		$release_info = $this->get_latest_release();
+		if ( ! $release_info ) {
+			return $transient;
+		}
+
+		// バージョン比較
+		if ( version_compare( JPCW_VERSION, $release_info['version'], '<' ) ) {
+			$obj = new stdClass();
+			$obj->slug = $this->plugin_slug;
+			$obj->new_version = $release_info['version'];
+			$obj->url = $release_info['url'];
+			$obj->package = $release_info['download_url'];
+			$obj->requires = '5.0';
+			$obj->requires_php = '7.4';
+			$obj->tested = '6.4';
+			$obj->last_updated = $release_info['published_at'];
+			$obj->sections = [
+				'description' => $release_info['description'],
+				'changelog' => $release_info['changelog'],
+			];
+
+			$transient->response[ $this->plugin_file ] = $obj;
+		}
+
+		return $transient;
+	}
+
+	/**
+	 * プラグイン情報の取得
+	 */
+	public function plugin_info( $false, $action, $response ) {
+		if ( empty( $response->slug ) || $response->slug !== $this->plugin_slug ) {
+			return $false;
+		}
+
+		$release_info = $this->get_latest_release();
+		if ( ! $release_info ) {
+			return $false;
+		}
+
+		$response->slug = $this->plugin_slug;
+		$response->plugin_name = 'Japanese Crossword Generator';
+		$response->version = $release_info['version'];
+		$response->author = 'Your Name';
+		$response->homepage = $release_info['url'];
+		$response->requires = '5.0';
+		$response->requires_php = '7.4';
+		$response->tested = '6.4';
+		$response->last_updated = $release_info['published_at'];
+		$response->sections = [
+			'description' => $release_info['description'],
+			'changelog' => $release_info['changelog'],
+		];
+		$response->download_link = $release_info['download_url'];
+
+		return $response;
+	}
+
+	/**
+	 * 最新リリース情報の取得
+	 */
+	private function get_latest_release() {
+		// キャッシュをチェック（1時間）
+		$cache_key = 'jpcw_github_latest_release';
+		$cached = get_transient( $cache_key );
+		if ( $cached !== false ) {
+			return $cached;
+		}
+
+		$api_url = 'https://api.github.com/repos/' . $this->github_repo . '/releases/latest';
+		
+		$args = [
+			'headers' => [
+				'Accept' => 'application/vnd.github.v3+json',
+				'User-Agent' => 'WordPress/' . get_bloginfo( 'version' ) . '; ' . get_bloginfo( 'url' ),
+			],
+			'timeout' => 15,
+		];
+
+		// アクセストークンがある場合は追加
+		if ( ! empty( $this->access_token ) ) {
+			$args['headers']['Authorization'] = 'token ' . $this->access_token;
+		}
+
+		$response = wp_remote_get( $api_url, $args );
+
+		if ( is_wp_error( $response ) ) {
+			return false;
+		}
+
+		$body = wp_remote_retrieve_body( $response );
+		$data = json_decode( $body, true );
+
+		if ( empty( $data ) || ! isset( $data['tag_name'] ) ) {
+			return false;
+		}
+
+		// バージョン番号をクリーンアップ（v1.0.0 → 1.0.0）
+		$version = ltrim( $data['tag_name'], 'v' );
+
+		$release_info = [
+			'version' => $version,
+			'url' => $data['html_url'],
+			'download_url' => $data['zipball_url'],
+			'description' => $data['body'],
+			'changelog' => $data['body'],
+			'published_at' => $data['published_at'],
+		];
+
+		// 1時間キャッシュ
+		set_transient( $cache_key, $release_info, HOUR_IN_SECONDS );
+
+		return $release_info;
+	}
+
+	/**
+	 * アップグレード後の処理
+	 */
+	public function upgrader_post_install( $response, $hook_extra, $result ) {
+		if ( isset( $hook_extra['plugin'] ) && $hook_extra['plugin'] === $this->plugin_file ) {
+			// キャッシュをクリア
+			delete_transient( 'jpcw_github_latest_release' );
+		}
+		return $response;
+	}
+}
 
 /**
  * メインクラス
@@ -38,6 +260,11 @@ class JPCrosswordGenerator {
 	 */
 	public function __construct() {
 		$this->init_hooks();
+		
+		// GitHubアップデーターの初期化
+		if ( is_admin() ) {
+			new JPCW_GitHub_Updater( JPCW_PLUGIN_FILE, JPCW_GITHUB_REPO );
+		}
 	}
 
 	/**
@@ -129,6 +356,16 @@ class JPCrosswordGenerator {
 			'jp-crossword',
 			[ $this, 'admin_page' ]
 		);
+		
+		// GitHub設定のサブメニューを追加
+		add_submenu_page(
+			'options-general.php',
+			__( 'Japanese Crossword GitHub Settings', 'jp-crossword' ),
+			__( 'Crossword GitHub', 'jp-crossword' ),
+			'manage_options',
+			'jp-crossword-github',
+			[ $this, 'github_settings_page' ]
+		);
 	}
 
 	/**
@@ -136,6 +373,7 @@ class JPCrosswordGenerator {
 	 */
 	public function admin_init() {
 		register_setting( 'jpcw_settings', 'jpcw_settings' );
+		register_setting( 'jpcw_github_settings', 'jpcw_github_token' );
 	}
 
 	/**
@@ -152,8 +390,77 @@ class JPCrosswordGenerator {
 				submit_button();
 				?>
 			</form>
+			
+			<hr>
+			
+			<h2><?php _e( 'GitHub Update Status', 'jp-crossword' ); ?></h2>
+			<?php $this->display_update_status(); ?>
 		</div>
 		<?php
+	}
+	
+	/**
+	 * GitHub設定ページ
+	 */
+	public function github_settings_page() {
+		?>
+		<div class="wrap">
+			<h1><?php _e( 'Japanese Crossword GitHub Settings', 'jp-crossword' ); ?></h1>
+			<form method="post" action="options.php">
+				<?php
+				settings_fields( 'jpcw_github_settings' );
+				?>
+				<table class="form-table">
+					<tr>
+						<th scope="row">
+							<label for="jpcw_github_token"><?php _e( 'GitHub Personal Access Token', 'jp-crossword' ); ?></label>
+						</th>
+						<td>
+							<input type="text" id="jpcw_github_token" name="jpcw_github_token" 
+								   value="<?php echo esc_attr( get_option( 'jpcw_github_token', '' ) ); ?>" 
+								   class="regular-text" />
+							<p class="description">
+								<?php _e( 'GitHub APIのレート制限を回避するために、Personal Access Tokenを設定することをお勧めします。', 'jp-crossword' ); ?>
+								<br>
+								<a href="https://github.com/settings/tokens" target="_blank"><?php _e( 'GitHubでトークンを生成', 'jp-crossword' ); ?></a>
+							</p>
+						</td>
+					</tr>
+				</table>
+				<?php submit_button(); ?>
+			</form>
+		</div>
+		<?php
+	}
+	
+	/**
+	 * 更新状況の表示
+	 */
+	private function display_update_status() {
+		$updates = get_site_transient( 'update_plugins' );
+		$plugin_file = plugin_basename( JPCW_PLUGIN_FILE );
+		
+		if ( isset( $updates->response[ $plugin_file ] ) ) {
+			$update = $updates->response[ $plugin_file ];
+			?>
+			<div class="notice notice-warning">
+				<p>
+					<strong><?php _e( '新しいバージョンが利用可能です！', 'jp-crossword' ); ?></strong><br>
+					<?php printf( __( '現在のバージョン: %s → 新しいバージョン: %s', 'jp-crossword' ), JPCW_VERSION, $update->new_version ); ?>
+					<br>
+					<a href="<?php echo admin_url( 'plugins.php' ); ?>" class="button button-primary">
+						<?php _e( 'プラグイン一覧で更新', 'jp-crossword' ); ?>
+					</a>
+				</p>
+			</div>
+			<?php
+		} else {
+			?>
+			<div class="notice notice-info">
+				<p><?php _e( 'プラグインは最新のバージョンです。', 'jp-crossword' ); ?></p>
+			</div>
+			<?php
+		}
 	}
 
 	/**
@@ -444,6 +751,10 @@ function jpcw_uninstall() {
 	// オプションの削除
 	delete_option( 'jpcw_version' );
 	delete_option( 'jpcw_settings' );
+	delete_option( 'jpcw_github_token' );
+	
+	// トランジェントの削除
+	delete_transient( 'jpcw_github_latest_release' );
 	
 	// 必要に応じてデータベーステーブルの削除
 	// 注意: ユーザーデータが含まれる場合は確認ダイアログを表示することを推奨
