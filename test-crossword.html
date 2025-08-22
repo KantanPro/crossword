@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>クロスワードプラグインテスト</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 20px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+        .error {
+            color: red;
+            background: #ffe6e6;
+            padding: 10px;
+            border-radius: 3px;
+            margin: 10px 0;
+        }
+        .success {
+            color: green;
+            background: #e6ffe6;
+            padding: 10px;
+            border-radius: 3px;
+            margin: 10px 0;
+        }
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            border: none;
+            border-radius: 3px;
+            background: #007cba;
+            color: white;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #005a87;
+        }
+        .log {
+            background: #f5f5f5;
+            padding: 10px;
+            border-radius: 3px;
+            margin: 10px 0;
+            max-height: 300px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <h1>クロスワードプラグインテスト</h1>
+    
+    <div class="test-section">
+        <h2>基本動作テスト</h2>
+        <button onclick="testBasicFunctionality()">基本機能テスト</button>
+        <button onclick="testAJAX()">AJAXテスト</button>
+        <button onclick="testErrorHandling()">エラーハンドリングテスト</button>
+        <div id="basic-results"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>JavaScriptエラーテスト</h2>
+        <button onclick="testJavaScriptErrors()">JavaScriptエラーテスト</button>
+        <div id="js-results"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>ログ出力</h2>
+        <button onclick="clearLog()">ログクリア</button>
+        <div id="log-output" class="log"></div>
+    </div>
+    
+    <script>
+        // ログ出力関数
+        function log(message, type = 'info') {
+            const logDiv = document.getElementById('log-output');
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = document.createElement('div');
+            logEntry.className = type;
+            logEntry.textContent = `[${timestamp}] ${message}`;
+            logDiv.appendChild(logEntry);
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+        
+        // 結果表示関数
+        function showResult(elementId, message, type = 'success') {
+            const element = document.getElementById(elementId);
+            element.innerHTML = `<div class="${type}">${message}</div>`;
+        }
+        
+        // 基本機能テスト
+        function testBasicFunctionality() {
+            log('基本機能テスト開始');
+            
+            try {
+                // jQueryの動作確認
+                if (typeof $ !== 'undefined') {
+                    log('jQuery: 利用可能', 'success');
+                } else {
+                    log('jQuery: 利用不可', 'error');
+                    showResult('basic-results', 'jQueryが利用できません', 'error');
+                    return;
+                }
+                
+                // 基本的なDOM操作テスト
+                const testElement = document.createElement('div');
+                testElement.id = 'test-element';
+                testElement.textContent = 'テスト要素';
+                document.body.appendChild(testElement);
+                
+                if (document.getElementById('test-element')) {
+                    log('DOM操作: 正常', 'success');
+                } else {
+                    log('DOM操作: 異常', 'error');
+                }
+                
+                // テスト要素を削除
+                document.body.removeChild(testElement);
+                
+                showResult('basic-results', '基本機能テスト完了', 'success');
+                log('基本機能テスト完了', 'success');
+                
+            } catch (error) {
+                log(`基本機能テストエラー: ${error.message}`, 'error');
+                showResult('basic-results', `エラー: ${error.message}`, 'error');
+            }
+        }
+        
+        // AJAXテスト
+        function testAJAX() {
+            log('AJAXテスト開始');
+            
+            try {
+                $.ajax({
+                    url: '/wp-admin/admin-ajax.php',
+                    type: 'POST',
+                    data: {
+                        action: 'test_ajax',
+                        test: 'crossword_test'
+                    },
+                    timeout: 5000,
+                    success: function(response) {
+                        log('AJAX成功: ' + JSON.stringify(response), 'success');
+                        showResult('basic-results', 'AJAXテスト成功', 'success');
+                    },
+                    error: function(xhr, status, error) {
+                        log(`AJAXエラー: ${status} - ${error}`, 'error');
+                        showResult('basic-results', `AJAXエラー: ${status}`, 'error');
+                    }
+                });
+            } catch (error) {
+                log(`AJAXテストエラー: ${error.message}`, 'error');
+                showResult('basic-results', `AJAXテストエラー: ${error.message}`, 'error');
+            }
+        }
+        
+        // エラーハンドリングテスト
+        function testErrorHandling() {
+            log('エラーハンドリングテスト開始');
+            
+            try {
+                // 意図的にエラーを発生させる
+                throw new Error('テストエラー');
+            } catch (error) {
+                log(`エラーキャッチ: ${error.message}`, 'success');
+                showResult('basic-results', 'エラーハンドリングテスト完了', 'success');
+            }
+        }
+        
+        // JavaScriptエラーテスト
+        function testJavaScriptErrors() {
+            log('JavaScriptエラーテスト開始');
+            
+            try {
+                // 未定義の変数にアクセス
+                const undefinedVar = someUndefinedVariable;
+                log('未定義変数アクセス: エラーが発生しませんでした', 'error');
+            } catch (error) {
+                log(`未定義変数エラー: ${error.message}`, 'success');
+            }
+            
+            try {
+                // 未定義の関数を呼び出し
+                undefinedFunction();
+                log('未定義関数呼び出し: エラーが発生しませんでした', 'error');
+            } catch (error) {
+                log(`未定義関数エラー: ${error.message}`, 'success');
+            }
+            
+            showResult('js-results', 'JavaScriptエラーテスト完了', 'success');
+        }
+        
+        // ログクリア
+        function clearLog() {
+            document.getElementById('log-output').innerHTML = '';
+        }
+        
+        // グローバルエラーハンドラー
+        window.addEventListener('error', function(event) {
+            log(`グローバルエラー: ${event.message} (${event.filename}:${event.lineno})`, 'error');
+        });
+        
+        // 未処理のPromise拒否をキャッチ
+        window.addEventListener('unhandledrejection', function(event) {
+            log(`未処理のPromise拒否: ${event.reason}`, 'error');
+        });
+        
+        // ページ読み込み完了時のログ
+        window.addEventListener('load', function() {
+            log('ページ読み込み完了');
+            log('クロスワードプラグインテストページが準備完了しました');
+        });
+        
+        // 初期化
+        document.addEventListener('DOMContentLoaded', function() {
+            log('DOM読み込み完了');
+        });
+    </script>
+</body>
+</html>

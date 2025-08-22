@@ -1,0 +1,450 @@
+/* クロスワードゲームのスタイル */
+
+.crossword-game {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 20px;
+    font-family: 'Arial', sans-serif;
+}
+
+.crossword-title {
+    text-align: center;
+    color: #333;
+    margin-bottom: 10px;
+    font-size: 2em;
+}
+
+.crossword-description {
+    text-align: center;
+    color: #666;
+    margin-bottom: 30px;
+    font-style: italic;
+}
+
+/* ゲームボード */
+.crossword-board {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 30px;
+}
+
+.crossword-grid {
+    display: grid;
+    gap: 2px;
+    background: #333;
+    padding: 10px;
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+.crossword-cell {
+    width: 50px;
+    height: 50px;
+    background: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid #ccc;
+    position: relative;
+}
+
+.crossword-cell.empty-cell {
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+}
+
+.crossword-cell.filled-cell {
+    background: #e8f4fd;
+    border: 1px solid #007cba;
+}
+
+.crossword-cell.word-cell {
+    border: 2px solid #007cba;
+}
+
+.crossword-cell.highlighted {
+    background: #fff3cd;
+    border: 2px solid #ffc107;
+}
+
+.crossword-input {
+    width: 100%;
+    height: 100%;
+    border: none;
+    text-align: center;
+    font-size: 18px;
+    font-weight: bold;
+    text-transform: uppercase;
+    background: transparent;
+    outline: none;
+    cursor: pointer;
+}
+
+.crossword-input:focus {
+    background: #e8f4fd;
+    box-shadow: inset 0 0 0 2px #007cba;
+}
+
+.crossword-input[readonly] {
+    background: #e8f4fd;
+    color: #007cba;
+    cursor: default;
+    font-weight: bold;
+}
+
+.crossword-input.answer-revealed {
+    background: #d4edda;
+    color: #155724;
+    font-weight: bold;
+}
+
+.crossword-input.correct {
+    color: #28a745;
+    background: #d4edda;
+}
+
+.crossword-input.incorrect {
+    color: #dc3545;
+    background: #f8d7da;
+}
+
+/* ヒントセクション */
+.crossword-hints {
+    margin-bottom: 30px;
+}
+
+.crossword-hints h3 {
+    color: #333;
+    border-bottom: 2px solid #007cba;
+    padding-bottom: 10px;
+    margin-bottom: 20px;
+}
+
+.hints-container {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 30px;
+}
+
+.hints-horizontal h4,
+.hints-vertical h4 {
+    color: #007cba;
+    margin-bottom: 15px;
+    font-size: 1.1em;
+}
+
+.hints-container ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.hints-container li {
+    padding: 8px 0;
+    border-bottom: 1px solid #eee;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.hints-container li:hover {
+    background-color: #f8f9fa;
+}
+
+.hints-container li.completed {
+    background-color: #d4edda;
+    color: #155724;
+}
+
+.hints-container li.completed strong {
+    text-decoration: line-through;
+}
+
+.hint-text {
+    margin-left: 10px;
+    color: #666;
+}
+
+/* コントロールボタン */
+.crossword-controls {
+    display: flex;
+    gap: 15px;
+    justify-content: center;
+    margin-bottom: 20px;
+}
+
+.crossword-controls button {
+    padding: 12px 24px;
+    border: none;
+    border-radius: 5px;
+    font-size: 16px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.crossword-check-btn {
+    background: #28a745;
+    color: white;
+}
+
+.crossword-check-btn:hover {
+    background: #218838;
+    transform: translateY(-2px);
+}
+
+.crossword-reset-btn {
+    background: #6c757d;
+    color: white;
+}
+
+.crossword-reset-btn:hover {
+    background: #5a6268;
+    transform: translateY(-2px);
+}
+
+.crossword-save-btn {
+    background: #007cba;
+    color: white;
+}
+
+.crossword-save-btn:hover {
+    background: #005a87;
+    transform: translateY(-2px);
+}
+
+.crossword-giveup-btn {
+    background: #dc3545;
+    color: white;
+}
+
+.crossword-giveup-btn:hover {
+    background: #c82333;
+    transform: translateY(-2px);
+}
+
+.crossword-giveup-btn:disabled {
+    background: #6c757d;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.crossword-answer-btn {
+    background: #17a2b8;
+    color: white;
+}
+
+.crossword-answer-btn:hover {
+    background: #138496;
+    transform: translateY(-2px);
+}
+
+.crossword-answer-btn.showing {
+    background: #6f42c1;
+}
+
+.crossword-answer-btn.showing:hover {
+    background: #5a32a3;
+}
+
+/* タイマー */
+.crossword-timer {
+    text-align: center;
+    font-size: 18px;
+    color: #666;
+    padding: 15px;
+    background: #f8f9fa;
+    border-radius: 5px;
+    border: 1px solid #dee2e6;
+}
+
+.timer-display {
+    font-weight: bold;
+    color: #007cba;
+    font-family: 'Courier New', monospace;
+}
+
+/* レスポンシブデザイン */
+@media (max-width: 768px) {
+    .crossword-game {
+        padding: 10px;
+    }
+    
+    .crossword-cell {
+        width: 40px;
+        height: 40px;
+    }
+    
+    .crossword-input {
+        font-size: 16px;
+    }
+    
+    .hints-container {
+        grid-template-columns: 1fr;
+        gap: 20px;
+    }
+    
+    .crossword-controls {
+        flex-direction: column;
+        align-items: center;
+    }
+    
+    .crossword-controls button {
+        width: 200px;
+    }
+}
+
+@media (max-width: 480px) {
+    .crossword-cell {
+        width: 35px;
+        height: 35px;
+    }
+    
+    .crossword-input {
+        font-size: 14px;
+    }
+    
+    .crossword-title {
+        font-size: 1.5em;
+    }
+}
+
+/* アニメーション */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.crossword-game {
+    animation: fadeIn 0.5s ease-out;
+}
+
+/* 完了時のスタイル */
+.crossword-game.completed .crossword-grid {
+    box-shadow: 0 4px 20px rgba(40, 167, 69, 0.3);
+}
+
+.crossword-game.completed .crossword-title::after {
+    content: ' 🎉';
+    animation: bounce 1s infinite;
+}
+
+@keyframes bounce {
+    0%, 20%, 50%, 80%, 100% {
+        transform: translateY(0);
+    }
+    40% {
+        transform: translateY(-10px);
+    }
+    60% {
+        transform: translateY(-5px);
+    }
+}
+
+/* ローディング状態 */
+.crossword-game.loading {
+    opacity: 0.7;
+    pointer-events: none;
+}
+
+.crossword-game.loading::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 40px;
+    height: 40px;
+    margin: -20px 0 0 -20px;
+    border: 4px solid #f3f3f3;
+    border-top: 4px solid #007cba;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* ボタンスタイル */
+.crossword-btn {
+    background: #007cba;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    margin: 5px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: bold;
+    transition: all 0.3s ease;
+}
+
+.crossword-btn:hover {
+    background: #005a87;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+}
+
+.crossword-btn:disabled {
+    background: #6c757d;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
+.crossword-answer-btn {
+    background: #28a745;
+}
+
+.crossword-answer-btn:hover {
+    background: #1e7e34;
+}
+
+.crossword-answer-btn.showing {
+    background: #dc3545;
+}
+
+.crossword-answer-btn.showing:hover {
+    background: #c82333;
+}
+
+/* 正解表示のスタイル */
+.answer-revealed {
+    background: #f8f9fa;
+    border: 2px solid #28a745;
+}
+
+.answer-visible {
+    background: #d4edda;
+    color: #155724;
+    font-weight: bold;
+}
+
+.answer-text {
+    color: #28a745;
+    font-weight: bold;
+    margin-left: 10px;
+}
+
+/* エラー表示 */
+.crossword-error {
+    background-color: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f5c6cb;
+    border-radius: 4px;
+    padding: 15px;
+    margin: 20px 0;
+    text-align: center;
+    font-weight: bold;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.crossword-error::before {
+    content: '⚠️ ';
+    margin-right: 8px;
+}
