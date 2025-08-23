@@ -2,7 +2,16 @@
 
 # プラグイン名とバージョンを取得
 PLUGIN_NAME="jp-crossword"
-VERSION="1.0.0"
+
+# プラグインファイルからバージョンを動的に取得
+VERSION=$(grep -o 'Version: [0-9]\+\.[0-9]\+\.[0-9]\+' jp-crossword.php | head -1 | sed 's/Version: //')
+
+# バージョンが取得できない場合はデフォルト値を使用
+if [ -z "$VERSION" ]; then
+    VERSION="1.0.0"
+    echo "警告: バージョン情報を取得できませんでした。デフォルト値 $VERSION を使用します。"
+fi
+
 TODAY=$(date +"%Y%m%d")
 
 # 出力先ディレクトリ
