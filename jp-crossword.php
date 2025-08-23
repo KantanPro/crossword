@@ -3,7 +3,7 @@
  * Plugin Name: Japanese Crossword Generator
  * Plugin URI: https://github.com/KantanPro/crossword
  * Description: 日本語のクロスワード（文字埋め）を自動生成して表示するプラグイン。ショートコードは [crossword] 。「新規問題」と「ギブアップ（答えを表示）」ボタンをフロントに設置。
- * Version: 1.0.0
+ * Version: 1.0.1
  * Requires at least: 5.0
  * Tested up to: 6.4
  * Requires PHP: 7.4
@@ -24,7 +24,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 // プラグインの定数定義
-define( 'JPCW_VERSION', '1.0.0' );
+define( 'JPCW_VERSION', '1.0.1' );
 define( 'JPCW_PLUGIN_FILE', __FILE__ );
 define( 'JPCW_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'JPCW_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
